@@ -92,7 +92,7 @@ def calculate_obv(df):
 
 menu = st.sidebar.radio(
     "📋 Menu",
-    ["Saham", "FPL"]
+    ["Saham"]
 )
 
 if menu == "Saham":
@@ -113,25 +113,6 @@ if menu == "Saham":
             "Right Issue Calc",
             "MyPorto",
             "Import Portfolio"
-        ]
-    )
-
-else:
-
-    submenu = st.sidebar.radio(
-        "Menu FPL",
-        [
-            "Home",
-            "Fixtures",
-            "My Team",
-            "Best XI",
-            "League Info",
-            "Standings",
-            "Statistics",
-            "Captain Picks",
-            "Rival Analyzer",
-            "Transfer Activity",
-            "Transfer Trends"
         ]
     )
 
@@ -2401,677 +2382,6 @@ elif menu == "Avg Down Planner":
         round(new_avg)
     )
 
-elif menu == "Analisa Saham":
-
-    st.title("📈 Analisa Saham")
-
-    if not os.path.exists("portfolio.csv"):
-
-        st.warning("Portfolio belum ada")
-        st.stop()
-
-    portfolio_df = pd.read_csv(
-        "portfolio.csv"
-    )
-
-    ticker = st.selectbox(
-        "Pilih Saham",
-        portfolio_df["Ticker"]
-    )
-
-    hist = yf.Ticker(
-        ticker + ".JK"
-    ).history(
-        period="1y"
-    )
-
-    if hist.empty:
-
-        st.warning(
-            "Data tidak ditemukan"
-        )
-
-        st.stop()
-
-    hist["MA20"] = (
-        hist["Close"]
-        .rolling(20)
-        .mean()
-    )
-
-    hist["MA50"] = (
-        hist["Close"]
-        .rolling(50)
-        .mean()
-    )
-
-    hist["RSI"] = calculate_rsi(
-        hist["Close"]
-    )
-
-    (
-        hist["MACD"],
-        hist["MACD_SIGNAL"],
-        hist["MACD_HIST"]
-    ) = calculate_macd(
-        hist["Close"]
-    )
-
-    hist["OBV"] = calculate_obv(
-        hist
-    )
-
-    close = float(
-        hist["Close"].iloc[-1]
-    )
-
-    ma20 = float(
-        hist["MA20"].iloc[-1]
-    )
-
-    ma50 = float(
-        hist["MA50"].iloc[-1]
-    )
-
-    rsi = float(
-        hist["RSI"].iloc[-1]
-    )
-
-    support = round(
-        hist["Low"]
-        .tail(20)
-        .min()
-    )
-
-    resistance = round(
-        hist["High"]
-        .tail(20)
-        .max()
-    )
-
-    analysis_menu = st.selectbox(
-        "Analisa",
-        [
-            "Dashboard",
-            "Support Resistance",
-            "RSI MACD",
-            "OBV",
-            "Volume",
-            "Average Down",
-            "Full Analysis"
-        ]
-    )
-
-    if analysis_menu == "Dashboard":
-
-        c1,c2,c3,c4 = st.columns(4)
-
-        c1.metric(
-            "Price",
-            round(close)
-        )
-
-        c2.metric(
-            "MA20",
-            round(ma20)
-        )
-
-        c3.metric(
-            "MA50",
-            round(ma50)
-        )
-
-        c4.metric(
-            "RSI",
-            round(rsi,2)
-        )
-
-        st.line_chart(
-            hist[
-                [
-                    "Close",
-                    "MA20",
-                    "MA50"
-                ]
-            ]
-        )
-
-    elif analysis_menu == "Support Resistance":
-
-        st.metric(
-            "Support",
-            support
-        )
-
-        st.metric(
-            "Resistance",
-            resistance
-        )
-
-        st.line_chart(
-            hist["Close"]
-        )
-
-    elif analysis_menu == "RSI MACD":
-
-        c1,c2,c3 = st.columns(3)
-
-        c1.metric(
-            "RSI",
-            round(rsi,2)
-        )
-
-        c2.metric(
-            "MACD",
-            round(
-                hist["MACD"].iloc[-1],
-                2
-            )
-        )
-
-        c3.metric(
-            "Signal",
-            round(
-                hist["MACD_SIGNAL"].iloc[-1],
-                2
-            )
-        )
-
-        st.line_chart(
-            hist[
-                [
-                    "MACD",
-                    "MACD_SIGNAL"
-                ]
-            ]
-        )
-    elif analysis_menu == "Volume":
-
-        st.subheader(
-            "Volume"
-        )
-
-        st.bar_chart(
-            hist["Volume"]
-            .tail(30)
-        )
-
-        avg_vol = (
-            hist["Volume"]
-            .tail(20)
-            .mean()
-        )
-
-        ratio = round(
-            hist["Volume"]
-            .iloc[-1]
-            / avg_vol,
-            2
-        )
-
-        st.metric(
-            "Volume Ratio",
-            f"{ratio}x"
-        )
-
-    elif analysis_menu == "OBV":
-
-        st.subheader(
-             "📊 On Balance Volume (OBV)"
-        )
-
-        st.line_chart(
-             hist["OBV"]
-        )
-
-        obv_now = hist["OBV"].iloc[-1]
-        obv_20 = hist["OBV"].iloc[-20]
-
-    if obv_now > obv_20:
-
-        st.success(
-            """
-✅ OBV Sedang Naik
-
-Menandakan volume cenderung masuk
-ke saham (akumulasi).
-
-Buyer lebih dominan daripada seller.
-
-Biasanya mendukung tren naik.
-"""
-        )
-
-    else:
-
-        st.warning(
-            """
-⚠️ OBV Sedang Turun
-
-Menandakan volume keluar
-dari saham (distribusi).
-
-Seller lebih dominan daripada buyer.
-
-Waspadai pelemahan harga.
-"""
-        )
-
-        st.divider()
-
-        st.subheader(
-           "📖 Cara Membaca OBV"
-        )
-
-        st.info(
-            """
-✅ OBV Naik
-
-Volume masuk ke saham.
-
-Mengindikasikan akumulasi.
-
---------------------------------
-
-✅ Harga Naik + OBV Naik
-
-Sinyal bullish paling sehat.
-
-Breakout lebih valid.
-
---------------------------------
-
-🔥 Harga Sideways + OBV Naik
-
-Smart money mulai masuk.
-
-Sering muncul sebelum kenaikan harga.
-
---------------------------------
-
-⚠️ Harga Naik + OBV Turun
-
-Divergence bearish.
-
-Harga naik tetapi volume keluar.
-
-Waspadai distribusi.
-
---------------------------------
-
-⚠️ Harga Turun + OBV Turun
-
-Tekanan jual masih dominan.
-
-Trend masih lemah.
-"""
-    )
-
-
-    elif analysis_menu == "Average Down":
-
-        row = portfolio_df[
-            portfolio_df["Ticker"]
-            == ticker
-        ].iloc[0]
-
-        current_lot = int(
-            row["Lot"]
-        )
-
-        avg_buy = float(
-            row["Avg Buy"]
-        )
-
-        add_lot = st.selectbox(
-            "Tambah Lot",
-            [1,2,5,10,20,50]
-        )
-
-        current_shares = (
-            current_lot
-            * 100
-        )
-
-        add_shares = (
-            add_lot
-            * 100
-        )
-
-        new_avg = (
-            (
-                current_shares
-                * avg_buy
-            )
-            +
-            (
-                add_shares
-                * close
-            )
-        ) / (
-            current_shares
-            + add_shares
-        )
-
-        st.metric(
-            "Current Avg",
-            round(avg_buy)
-        )
-
-        st.metric(
-            "Current Price",
-            round(close)
-        )
-
-        st.metric(
-            "New Avg",
-            round(new_avg)
-        )
-
-    elif analysis_menu == "Full Analysis":
-
-        st.metric(
-            "Price",
-            round(close)
-        )
-
-        st.metric(
-            "Support",
-            support
-        )
-
-        st.metric(
-            "Resistance",
-            resistance
-        )
-
-        st.metric(
-            "RSI",
-            round(rsi,2)
-        )
-
-        st.line_chart(
-            hist[
-                [
-                    "Close",
-                    "MA20",
-                    "MA50"
-                ]
-            ]
-        )
-
-        st.line_chart(
-            hist["OBV"]
-        )
-
-        st.dataframe(
-            hist[
-                [
-                    "Close",
-                    "Volume"
-                ]
-            ].tail(7)
-        )
-elif menu == "Portfolio Radar":
-
-    st.title("📡 Portfolio Radar")
-
-    if not os.path.exists(
-        "portfolio.csv"
-    ):
-
-        st.warning(
-            "Portfolio belum ada."
-        )
-
-        st.stop()
-
-    portfolio_df = pd.read_csv(
-        "portfolio.csv"
-    )
-
-    radar_rows = []
-
-    for _, row in portfolio_df.iterrows():
-
-        try:
-
-            ticker = (
-                row["Ticker"]
-                + ".JK"
-            )
-
-            hist = yf.Ticker(
-                ticker
-            ).history(
-                period="6mo"
-            )
-
-            if len(hist) < 60:
-
-                continue
-
-            hist["MA20"] = (
-                hist["Close"]
-                .rolling(20)
-                .mean()
-            )
-
-            hist["MA50"] = (
-                hist["Close"]
-                .rolling(50)
-                .mean()
-            )
-
-            close = float(
-                hist["Close"].iloc[-1]
-            )
-
-            ma20 = float(
-                hist["MA20"].iloc[-1]
-            )
-
-            ma50 = float(
-                hist["MA50"].iloc[-1]
-            )
-
-            avg_vol = (
-                hist["Volume"]
-                .tail(20)
-                .mean()
-            )
-
-            vol_ratio = round(
-                hist["Volume"].iloc[-1]
-                /
-                avg_vol,
-                2
-            )
-
-            # Trend
-            if close > ma20 > ma50:
-
-                trend = "🟢 Uptrend"
-
-            elif close > ma20:
-
-                trend = "🟡 Watch"
-
-            else:
-
-                trend = "🔴 Downtrend"
-
-            # Volume Status
-            if vol_ratio >= 2:
-
-                vol_status = "🔥 Meledak"
-
-            elif vol_ratio >= 1.5:
-
-                vol_status = "🚀 Tinggi"
-
-            elif vol_ratio >= 1:
-
-                vol_status = "✅ Normal"
-
-            elif vol_ratio >= 0.5:
-
-                vol_status = "🟡 Rendah"
-
-            else:
-
-                vol_status = "😴 Sepi"
-
-            radar_rows.append(
-                {
-                    "Ticker":
-                    row["Ticker"],
-
-                    "Price":
-                    round(close),
-
-                    "Vol Ratio":
-                    vol_ratio,
-
-                    "Volume":
-                    vol_status,
-
-                    "Trend":
-                    trend
-                }
-            )
-
-        except:
-            pass
-
-    radar_df = pd.DataFrame(
-        radar_rows
-    )
-
-    if radar_df.empty:
-
-        st.warning(
-            "Tidak ada data."
-        )
-
-    else:
-
-        st.dataframe(
-            radar_df,
-            hide_index=True,
-            use_container_width=True
-        )
-
-        st.divider()
-
-        col1, col2, col3 = st.columns(3)
-
-        with col1:
-
-            st.metric(
-                "🟢 Uptrend",
-                len(
-                    radar_df[
-                        radar_df["Trend"]
-                        ==
-                        "🟢 Uptrend"
-                    ]
-                )
-            )
-
-        with col2:
-
-            st.metric(
-                "🚀 High Volume",
-                len(
-                    radar_df[
-                        radar_df["Vol Ratio"]
-                        >= 1.5
-                    ]
-                )
-            )
-
-        with col3:
-
-            st.metric(
-                "😴 Sepi",
-                len(
-                    radar_df[
-                        radar_df["Vol Ratio"]
-                        < 0.5
-                    ]
-                )
-            )
-
-        st.divider()
-
-        st.subheader(
-            "📖 Penjelasan Volume"
-        )
-
-        volume_guide = pd.DataFrame(
-            [
-                [
-                    "< 0.50",
-                    "😴 Sangat Sepi"
-                ],
-                [
-                    "0.50 - 0.99",
-                    "🟡 Di bawah normal"
-                ],
-                [
-                    "1.00 - 1.49",
-                    "✅ Normal"
-                ],
-                [
-                    "1.50 - 1.99",
-                    "🚀 Aktivitas Tinggi"
-                ],
-                [
-                    "≥ 2.00",
-                    "🔥 Volume Meledak"
-                ]
-            ],
-            columns=[
-                "Vol Ratio",
-                "Arti"
-            ]
-        )
-
-        st.dataframe(
-            volume_guide,
-            hide_index=True,
-            use_container_width=True
-        )
-
-        st.info(
-            """
-Vol Ratio = Volume Hari Ini ÷ Rata-rata Volume 20 Hari
-
-Contoh:
-
-Vol Ratio 1.20
-→ volume 20% lebih besar dari rata-rata.
-
-Vol Ratio 2.00
-→ volume 2x lebih besar dari rata-rata.
-
-Vol Ratio 3.00
-→ volume 3x lebih besar dari rata-rata.
-
-Perhatian:
-Volume tinggi belum tentu bullish.
-
-✅ Harga naik + volume tinggi
-= akumulasi / breakout.
-
-❌ Harga turun + volume tinggi
-= distribusi / tekanan jual.
-"""
-        )
-
-
-
 elif menu == "Breakout Scanner":
 
     st.title("🚀 Breakout Scanner")
@@ -3538,4 +2848,424 @@ atau profit taking.
 Semakin panjang ekor atas
 semakin perlu hati-hati.
 """
+        )
+elif menu == "Analisa Saham":
+
+    st.title("📈 Analisa Saham")
+
+    if not os.path.exists("portfolio.csv"):
+
+        st.warning("Portfolio belum ada")
+        st.stop()
+
+    portfolio_df = pd.read_csv(
+        "portfolio.csv"
+    )
+
+    ticker = st.selectbox(
+        "Pilih Saham",
+        portfolio_df["Ticker"]
+    )
+
+    hist = yf.Ticker(
+        ticker + ".JK"
+    ).history(
+        period="1y"
+    )
+
+    if hist.empty:
+
+        st.warning(
+            "Data tidak ditemukan"
+        )
+
+        st.stop()
+
+    hist["MA20"] = (
+        hist["Close"]
+        .rolling(20)
+        .mean()
+    )
+
+    hist["MA50"] = (
+        hist["Close"]
+        .rolling(50)
+        .mean()
+    )
+
+    hist["RSI"] = calculate_rsi(
+        hist["Close"]
+    )
+
+    (
+        hist["MACD"],
+        hist["MACD_SIGNAL"],
+        hist["MACD_HIST"]
+    ) = calculate_macd(
+        hist["Close"]
+    )
+
+    hist["OBV"] = calculate_obv(
+        hist
+    )
+
+    close = float(
+        hist["Close"].iloc[-1]
+    )
+
+    ma20 = float(
+        hist["MA20"].iloc[-1]
+    )
+
+    ma50 = float(
+        hist["MA50"].iloc[-1]
+    )
+
+    rsi = float(
+        hist["RSI"].iloc[-1]
+    )
+
+    support = round(
+        hist["Low"]
+        .tail(20)
+        .min()
+    )
+
+    resistance = round(
+        hist["High"]
+        .tail(20)
+        .max()
+    )
+
+    analysis_menu = st.selectbox(
+        "Analisa",
+        [
+            "Dashboard",
+            "Support Resistance",
+            "RSI MACD",
+            "Volume",
+            "OBV",
+            "Average Down",
+            "Full Analysis"
+        ]
+    )
+
+    if analysis_menu == "Dashboard":
+
+        c1, c2, c3, c4 = st.columns(4)
+
+        c1.metric(
+            "Price",
+            round(close)
+        )
+
+        c2.metric(
+            "MA20",
+            round(ma20)
+        )
+
+        c3.metric(
+            "MA50",
+            round(ma50)
+        )
+
+        c4.metric(
+            "RSI",
+            round(rsi, 2)
+        )
+
+        st.line_chart(
+            hist[
+                [
+                    "Close",
+                    "MA20",
+                    "MA50"
+                ]
+            ]
+        )
+
+    elif analysis_menu == "Support Resistance":
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.metric(
+                "Support",
+                support
+            )
+
+        with col2:
+            st.metric(
+                "Resistance",
+                resistance
+            )
+
+        st.line_chart(
+            hist["Close"]
+        )
+
+    elif analysis_menu == "RSI MACD":
+
+        c1, c2, c3 = st.columns(3)
+
+        c1.metric(
+            "RSI",
+            round(rsi, 2)
+        )
+
+        c2.metric(
+            "MACD",
+            round(
+                hist["MACD"].iloc[-1],
+                2
+            )
+        )
+
+        c3.metric(
+            "Signal",
+            round(
+                hist["MACD_SIGNAL"].iloc[-1],
+                2
+            )
+        )
+
+        st.line_chart(
+            hist[
+                [
+                    "MACD",
+                    "MACD_SIGNAL"
+                ]
+            ]
+        )
+
+    elif analysis_menu == "Volume":
+
+        st.subheader(
+            "📊 Volume Analysis"
+        )
+
+        st.bar_chart(
+            hist["Volume"].tail(30)
+        )
+
+        avg_vol = (
+            hist["Volume"]
+            .tail(20)
+            .mean()
+        )
+
+        ratio = round(
+            hist["Volume"].iloc[-1]
+            / avg_vol,
+            2
+        )
+
+        st.metric(
+            "Volume Ratio",
+            f"{ratio}x"
+        )
+
+    elif analysis_menu == "OBV":
+
+        st.subheader(
+            "📊 On Balance Volume (OBV)"
+        )
+
+        st.line_chart(
+            hist["OBV"]
+        )
+
+        obv_now = hist["OBV"].iloc[-1]
+
+        obv_20 = hist["OBV"].iloc[-20]
+
+        if obv_now > obv_20:
+
+            st.success(
+                """
+✅ OBV Sedang Naik
+
+Menandakan volume masuk ke saham.
+
+Terjadi akumulasi.
+
+Buyer lebih dominan.
+
+Mendukung tren naik.
+"""
+            )
+
+        else:
+
+            st.warning(
+                """
+⚠️ OBV Sedang Turun
+
+Menandakan volume keluar dari saham.
+
+Terjadi distribusi.
+
+Seller lebih dominan.
+
+Waspadai pelemahan harga.
+"""
+            )
+
+        st.divider()
+
+        st.subheader(
+            "📖 Cara Membaca OBV"
+        )
+
+        st.info(
+            """
+✅ OBV Naik
+
+Volume masuk ke saham.
+
+Mengindikasikan akumulasi.
+
+--------------------------------
+
+✅ Harga Naik + OBV Naik
+
+Bullish sehat.
+
+Breakout lebih valid.
+
+--------------------------------
+
+🔥 Harga Sideways + OBV Naik
+
+Smart money mulai masuk.
+
+--------------------------------
+
+⚠️ Harga Naik + OBV Turun
+
+Bearish divergence.
+
+--------------------------------
+
+⚠️ Harga Turun + OBV Turun
+
+Tekanan jual masih dominan.
+"""
+        )
+
+    elif analysis_menu == "Average Down":
+
+        row = portfolio_df[
+            portfolio_df["Ticker"]
+            == ticker
+        ].iloc[0]
+
+        current_lot = int(
+            row["Lot"]
+        )
+
+        avg_buy = float(
+            row["Avg Buy"]
+        )
+
+        add_lot = st.selectbox(
+            "Tambah Lot",
+            [1, 2, 5, 10, 20, 50]
+        )
+
+        current_shares = (
+            current_lot * 100
+        )
+
+        add_shares = (
+            add_lot * 100
+        )
+
+        new_avg = (
+            (
+                current_shares
+                * avg_buy
+            )
+            +
+            (
+                add_shares
+                * close
+            )
+        ) / (
+            current_shares
+            + add_shares
+        )
+
+        c1, c2, c3 = st.columns(3)
+
+        c1.metric(
+            "Current Avg",
+            round(avg_buy)
+        )
+
+        c2.metric(
+            "Current Price",
+            round(close)
+        )
+
+        c3.metric(
+            "New Avg",
+            round(new_avg)
+        )
+
+    elif analysis_menu == "Full Analysis":
+
+        st.metric(
+            "Price",
+            round(close)
+        )
+
+        st.metric(
+            "Support",
+            support
+        )
+
+        st.metric(
+            "Resistance",
+            resistance
+        )
+
+        st.metric(
+            "RSI",
+            round(rsi, 2)
+        )
+
+        st.subheader(
+            "Price Trend"
+        )
+
+        st.line_chart(
+            hist[
+                [
+                    "Close",
+                    "MA20",
+                    "MA50"
+                ]
+            ]
+        )
+
+        st.subheader(
+            "OBV"
+        )
+
+        st.line_chart(
+            hist["OBV"]
+        )
+
+        st.subheader(
+            "Recent Data"
+        )
+
+        st.dataframe(
+            hist[
+                [
+                    "Close",
+                    "Volume"
+                ]
+            ].tail(7)
         )
