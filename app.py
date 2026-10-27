@@ -106,6 +106,7 @@ if menu == "Saham":
             "Breakout Scanner",
             "Take Profit Analyzer",
             "OBV Forecast",
+            "Stock Entry Analyzer"
             "Avg Down Planner",
             "Value Screener",
             "Price Momentum",
@@ -4498,3 +4499,409 @@ Profit sudah tinggi dan distribusi kuat.
 Prioritaskan pengamanan profit.
 """
         )
+elif menu == "Stock Entry Analyzer":
+
+    st.title(
+        "🔎 Smart Entry Analyzer"
+    )
+
+    ticker = st.text_input(
+        "Kode Saham",
+        placeholder="BBCA"
+    )
+
+    if ticker:
+
+        try:
+
+            ticker = (
+                ticker.upper()
+                .strip()
+            )
+
+            hist = yf.Ticker(
+                ticker + ".JK"
+            ).history(
+                period="1y"
+            )
+
+            if hist.empty:
+
+                st.warning(
+                    "Data tidak ditemukan."
+                )
+
+                st.stop()
+
+            hist["RSI"] = calculate_rsi(
+                hist["Close"]
+            )
+
+            (
+                hist["MACD"],
+                hist["MACD_SIGNAL"],
+                hist["MACD_HIST"]
+            ) = calculate_macd(
+                hist["Close"]
+            )
+
+            hist["OBV"] = calculate_obv(
+                hist
+            )
+
+            close = float(
+                hist["Close"]
+                .iloc[-1]
+            )
+
+            rsi = float(
+                hist["RSI"]
+                .iloc[-1]
+            )
+
+            macd = float(
+                hist["MACD"]
+                .iloc[-1]
+            )
+
+            signal = float(
+                hist["MACD_SIGNAL"]
+                .iloc[-1]
+            )
+
+            support = round(
+                hist["Low"]
+                .tail(20)
+                .min()
+            )
+
+            resistance = round(
+                hist["High"]
+                .tail(20)
+                .max()
+            )
+
+            buy_zone_1 = support
+
+            buy_zone_2 = round(
+                support * 1.03
+            )
+
+            avg_vol = (
+                hist["Volume"]
+                .tail(20)
+                .mean()
+            )
+
+            vol_ratio = round(
+                hist["Volume"]
+                .iloc[-1]
+                /
+                avg_vol,
+                2
+            )
+
+            obv_now = (
+                hist["OBV"]
+                .iloc[-1]
+            )
+
+            obv_ma5 = (
+                pd.Series(
+                    hist["OBV"]
+                )
+                .tail(5)
+                .mean()
+            )
+
+            obv_ma20 = (
+                pd.Series(
+                    hist["OBV"]
+                )
+                .tail(20)
+                .mean()
+            )
+
+            if obv_ma5 > obv_ma20:
+
+                obv_status = (
+                    "✅ Akumulasi"
+                )
+
+            else:
+
+                obv_status = (
+                    "⚠️ Distribusi"
+                )
+
+            obv_strength = round(
+                obv_now
+                /
+                abs(obv_ma20),
+                2
+            )
+
+            score = 0
+
+            reasons = []
+
+            # RSI
+
+            if 55 <= rsi <= 70:
+
+                score += 2
+                reasons.append(
+                    "RSI Bullish"
+                )
+
+            elif rsi > 70:
+
+                score -= 1
+                reasons.append(
+                    "RSI Panas"
+                )
+
+            # MACD
+
+            if macd > signal:
+
+                score += 2
+                reasons.append(
+                    "MACD Bullish"
+                )
+
+            # OBV
+
+            if obv_status == "✅ Akumulasi":
+
+                score += 3
+                reasons.append(
+                    "Bandar Akumulasi"
+                )
+
+            # Volume
+
+            if vol_ratio >= 1.5:
+
+                score += 2
+                reasons.append(
+                    "Volume Tinggi"
+                )
+
+            elif vol_ratio >= 1:
+
+                score += 1
+
+            # Resistance
+
+            if (
+                close
+                >= resistance * 0.95
+            ):
+
+                score += 2
+                reasons.append(
+                    "Dekat Breakout"
+                )
+
+            if score >= 8:
+
+                recommendation = (
+                    "🔥 STRONG BUY"
+                )
+
+            elif score >= 5:
+
+                recommendation = (
+                    "🚀 BUY"
+                )
+
+            elif score >= 3:
+
+                recommendation = (
+                    "👀 WATCHLIST"
+                )
+
+            else:
+
+                recommendation = (
+                    "⚠️ WAIT"
+                )
+
+            target1 = round(
+                resistance * 1.05
+            )
+
+            target2 = round(
+                resistance * 1.15
+            )
+
+            upside1 = round(
+                (
+                    (
+                        target1
+                        - close
+                    )
+                    /
+                    close
+                )
+                * 100,
+                2
+            )
+
+            upside2 = round(
+                (
+                    (
+                        target2
+                        - close
+                    )
+                    /
+                    close
+                )
+                * 100,
+                2
+            )
+
+            risk = round(
+                (
+                    (
+                        close
+                        -
+                        support
+                    )
+                    /
+                    close
+                )
+                * 100,
+                2
+            )
+
+            c1,c2,c3,c4 = st.columns(4)
+
+            c1.metric(
+                "Price",
+                round(close)
+            )
+
+            c2.metric(
+                "RSI",
+                round(rsi,2)
+            )
+
+            c3.metric(
+                "Vol Ratio",
+                vol_ratio
+            )
+
+            c4.metric(
+                "Score",
+                score
+            )
+
+            st.divider()
+
+            st.dataframe(
+                pd.DataFrame([
+                    {
+                        "Support":
+                        support,
+
+                        "Buy Area":
+                        f"{buy_zone_1}-{buy_zone_2}",
+
+                        "Resistance":
+                        resistance,
+
+                        "Target1":
+                        target1,
+
+                        "Target2":
+                        target2
+                    }
+                ]),
+                hide_index=True,
+                use_container_width=True
+            )
+
+            st.divider()
+
+            st.success(
+                f"""
+{recommendation}
+"""
+            )
+
+            st.write(
+                f"""
+OBV :
+{obv_status}
+
+OBV Strength :
+{obv_strength}
+
+MACD :
+{round(macd,2)}
+
+Signal :
+{round(signal,2)}
+"""
+            )
+
+            st.divider()
+
+            st.subheader(
+                "Risk Reward"
+            )
+
+            st.metric(
+                "Risk %",
+                risk
+            )
+
+            st.metric(
+                "Target 1 %",
+                upside1
+            )
+
+            st.metric(
+                "Target 2 %",
+                upside2
+            )
+
+            st.divider()
+
+            st.subheader(
+                "📖 Kesimpulan"
+            )
+
+            st.info(
+                f"""
+Rekomendasi :
+
+{recommendation}
+
+Alasan :
+
+{', '.join(reasons)}
+
+Support :
+{support}
+
+Resistance :
+{resistance}
+
+Target 1 :
+{target1}
+
+Target 2 :
+{target2}
+
+Status Bandar :
+
+{obv_status}
+"""
+            )
+
+        except Exception as e:
+
+            st.error(e)
