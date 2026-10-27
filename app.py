@@ -4102,7 +4102,7 @@ elif menu == "Take Profit Analyzer":
         )
 elif menu == "OBV Forecast":
 
-    st.title("📦 OBV Forecast")
+    st.title("📦 OBV Forecast Portfolio")
 
     if not os.path.exists(
         "portfolio.csv"
@@ -4118,7 +4118,7 @@ elif menu == "OBV Forecast":
         "portfolio.csv"
     )
 
-    forecast_rows = []
+    rows = []
 
     for _, row in portfolio_df.iterrows():
 
@@ -4126,13 +4126,23 @@ elif menu == "OBV Forecast":
 
             ticker = row["Ticker"]
 
+            avg_buy = float(
+                row["Avg Buy"]
+            )
+
+            lot = int(
+                row["Lot"]
+            )
+
+            shares = lot * 100
+
             hist = yf.Ticker(
                 ticker + ".JK"
             ).history(
                 period="1y"
             )
 
-            if len(hist) < 60:
+            if len(hist) < 100:
 
                 continue
 
@@ -4140,8 +4150,29 @@ elif menu == "OBV Forecast":
                 hist
             )
 
-            close = float(
+            current_price = float(
                 hist["Close"].iloc[-1]
+            )
+
+            profit_pct = round(
+                (
+                    (
+                        current_price
+                        - avg_buy
+                    )
+                    /
+                    avg_buy
+                )
+                * 100,
+                2
+            )
+
+            profit_rp = round(
+                (
+                    current_price
+                    - avg_buy
+                )
+                * shares
             )
 
             support = round(
@@ -4159,14 +4190,6 @@ elif menu == "OBV Forecast":
             obv_now = (
                 hist["OBV"]
                 .iloc[-1]
-            )
-
-            obv_avg = (
-                pd.Series(
-                    hist["OBV"]
-                )
-                .tail(20)
-                .mean()
             )
 
             obv_ma5 = (
@@ -4188,7 +4211,7 @@ elif menu == "OBV Forecast":
             obv_strength = round(
                 obv_now
                 /
-                obv_avg,
+                abs(obv_ma20),
                 2
             )
 
@@ -4204,76 +4227,6 @@ elif menu == "OBV Forecast":
                     "⚠️ Distribusi"
                 )
 
-            # =====================
-            # FORECAST
-            # =====================
-
-            if (
-                obv_strength >= 1.5
-            ):
-
-                forecast = (
-                    "🔥 Sangat Bullish"
-                )
-
-                next_target = round(
-                    resistance * 1.15
-                )
-
-                probability = "85%"
-
-            elif (
-                obv_strength >= 1.2
-            ):
-
-                forecast = (
-                    "🚀 Bullish"
-                )
-
-                next_target = round(
-                    resistance * 1.10
-                )
-
-                probability = "75%"
-
-            elif (
-                obv_strength >= 1.05
-            ):
-
-                forecast = (
-                    "✅ Breakout Watch"
-                )
-
-                next_target = round(
-                    resistance * 1.05
-                )
-
-                probability = "65%"
-
-            else:
-
-                forecast = (
-                    "⏸ Sideways"
-                )
-
-                next_target = resistance
-
-                probability = "50%"
-
-            upside = round(
-                (
-                    (
-                        next_target
-                        -
-                        close
-                    )
-                    /
-                    close
-                )
-                * 100,
-                2
-            )
-
             score = 0
 
             if obv_strength > 1.5:
@@ -4288,16 +4241,120 @@ elif menu == "OBV Forecast":
             if bandar == "✅ Akumulasi":
                 score += 2
 
-            if close >= resistance * 0.95:
+            if current_price >= resistance * 0.95:
                 score += 2
 
-            forecast_rows.append(
+            if current_price > avg_buy:
+                score += 1
+
+            # Forecast
+
+            if score >= 7:
+
+                forecast = (
+                    "🔥 Sangat Bullish"
+                )
+
+                target = round(
+                    resistance * 1.15
+                )
+
+            elif score >= 5:
+
+                forecast = (
+                    "🚀 Bullish"
+                )
+
+                target = round(
+                    resistance * 1.10
+                )
+
+            elif score >= 3:
+
+                forecast = (
+                    "✅ Watch"
+                )
+
+                target = round(
+                    resistance * 1.05
+                )
+
+            else:
+
+                forecast = (
+                    "⏸ Sideways"
+                )
+
+                target = resistance
+
+            upside = round(
+                (
+                    (
+                        target
+                        -
+                        current_price
+                    )
+                    /
+                    current_price
+                )
+                * 100,
+                2
+            )
+
+            # Action
+
+            if (
+                profit_pct > 50
+                and bandar == "⚠️ Distribusi"
+            ):
+
+                action = (
+                    "🔴 TP Semua"
+                )
+
+            elif (
+                profit_pct > 25
+                and bandar == "⚠️ Distribusi"
+            ):
+
+                action = (
+                    "🟠 TP 50%"
+                )
+
+            elif (
+                profit_pct < 0
+                and bandar == "✅ Akumulasi"
+            ):
+
+                action = (
+                    "🟢 Avg Down Watch"
+                )
+
+            else:
+
+                action = (
+                    "✅ Hold"
+                )
+
+            rows.append(
                 {
                     "Ticker":
                     ticker,
 
+                    "Lot":
+                    lot,
+
+                    "Avg":
+                    round(avg_buy),
+
                     "Price":
-                    round(close),
+                    round(current_price),
+
+                    "P/L %":
+                    profit_pct,
+
+                    "P/L Rp":
+                    profit_rp,
 
                     "Support":
                     support,
@@ -4305,7 +4362,7 @@ elif menu == "OBV Forecast":
                     "Resistance":
                     resistance,
 
-                    "OBV Strength":
+                    "OBV":
                     obv_strength,
 
                     "Bandar":
@@ -4314,14 +4371,14 @@ elif menu == "OBV Forecast":
                     "Forecast":
                     forecast,
 
-                    "Next Target":
-                    next_target,
+                    "Target":
+                    target,
 
                     "Upside %":
                     upside,
 
-                    "Prob":
-                    probability,
+                    "Action":
+                    action,
 
                     "Score":
                     score
@@ -4332,7 +4389,7 @@ elif menu == "OBV Forecast":
             pass
 
     forecast_df = pd.DataFrame(
-        forecast_rows
+        rows
     )
 
     if forecast_df.empty:
@@ -4355,15 +4412,19 @@ elif menu == "OBV Forecast":
             forecast_df[
                 [
                     "Ticker",
+                    "Lot",
+                    "Avg",
                     "Price",
+                    "P/L %",
+                    "P/L Rp",
                     "Support",
                     "Resistance",
-                    "OBV Strength",
+                    "OBV",
                     "Bandar",
                     "Forecast",
-                    "Next Target",
+                    "Target",
                     "Upside %",
-                    "Prob"
+                    "Action"
                 ]
             ],
             hide_index=True,
@@ -4373,13 +4434,11 @@ elif menu == "OBV Forecast":
         st.divider()
 
         st.subheader(
-            "🏆 Top OBV Candidates"
+            "🏆 Top Forecast"
         )
 
-        top5 = forecast_df.head(5)
-
         st.dataframe(
-            top5,
+            forecast_df.head(5),
             hide_index=True,
             use_container_width=True
         )
@@ -4387,85 +4446,55 @@ elif menu == "OBV Forecast":
         st.divider()
 
         st.subheader(
-            "📱 Copy To WhatsApp"
-        )
-
-        wa_text = (
-            "📦 OBV FORECAST\n\n"
-        )
-
-        for _, r in top5.iterrows():
-
-            wa_text += (
-                f"{r['Ticker']}\n"
-                f"Price {r['Price']}\n"
-                f"Support {r['Support']}\n"
-                f"Resistance {r['Resistance']}\n"
-                f"OBV {r['OBV Strength']}x\n"
-                f"{r['Bandar']}\n"
-                f"Target {r['Next Target']}\n"
-                f"Upside {r['Upside %']}%\n"
-                f"{r['Forecast']}\n\n"
-            )
-
-        st.code(
-            wa_text,
-            language="text"
-        )
-
-        st.divider()
-
-        st.subheader(
-            "📖 Cara Membaca OBV Forecast"
+            "📖 Interpretasi"
         )
 
         st.info(
             """
 ✅ Akumulasi
 
-OBV 5 hari > OBV 20 hari
+Bandar masih mengumpulkan saham.
 
-Bandar sedang mengumpulkan saham
+OBV 5 hari lebih kuat dari OBV 20 hari.
 
 --------------------------------
 
 ⚠️ Distribusi
 
-OBV 5 hari < OBV 20 hari
+Bandar mulai melepas saham.
 
-Bandar mulai melepas saham
-
---------------------------------
-
-OBV Strength
-
-< 1.00
-= Lemah
-
-1.00 - 1.20
-= Normal
-
-1.20 - 1.50
-= Kuat
-
-> 1.50
-= Sangat Kuat
-
---------------------------------
-
-🚀 Bullish
-
-Target berikutnya dihitung dari
-resistance yang berpotensi ditembus.
+Perlu waspada.
 
 --------------------------------
 
 🔥 Sangat Bullish
 
-Akumulasi kuat.
+Target berpotensi naik >10%.
 
-Volume masuk besar.
+Probabilitas breakout tinggi.
 
-Kemungkinan breakout tinggi.
+--------------------------------
+
+🟢 Avg Down Watch
+
+Sedang rugi tetapi bandar masih akumulasi.
+
+Layak masuk watchlist averaging.
+
+--------------------------------
+
+🟠 TP 50%
+
+Profit sudah besar dan ada tanda distribusi.
+
+Pertimbangkan realisasi sebagian profit.
+
+--------------------------------
+
+🔴 TP Semua
+
+Profit sudah tinggi dan distribusi kuat.
+
+Prioritaskan pengamanan profit.
 """
         )
