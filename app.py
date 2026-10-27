@@ -105,6 +105,7 @@ if menu == "Saham":
             "Analisa Saham",
             "Breakout Scanner",
             "Take Profit Analyzer",
+            "OBV Forecast"
             "Avg Down Planner",
             "Value Screener",
             "Price Momentum",
@@ -4098,4 +4099,373 @@ elif menu == "Take Profit Analyzer":
         st.code(
             wa_text,
             language="text"
+        )
+elif menu == "OBV Forecast":
+
+    st.title("📦 OBV Forecast")
+
+    if not os.path.exists(
+        "portfolio.csv"
+    ):
+
+        st.warning(
+            "Portfolio belum ada."
+        )
+
+        st.stop()
+
+    portfolio_df = pd.read_csv(
+        "portfolio.csv"
+    )
+
+    forecast_rows = []
+
+    for _, row in portfolio_df.iterrows():
+
+        try:
+
+            ticker = row["Ticker"]
+
+            hist = yf.Ticker(
+                ticker + ".JK"
+            ).history(
+                period="1y"
+            )
+
+            if len(hist) < 60:
+
+                continue
+
+            hist["OBV"] = calculate_obv(
+                hist
+            )
+
+            close = float(
+                hist["Close"].iloc[-1]
+            )
+
+            support = round(
+                hist["Low"]
+                .tail(20)
+                .min()
+            )
+
+            resistance = round(
+                hist["High"]
+                .tail(20)
+                .max()
+            )
+
+            obv_now = (
+                hist["OBV"]
+                .iloc[-1]
+            )
+
+            obv_avg = (
+                pd.Series(
+                    hist["OBV"]
+                )
+                .tail(20)
+                .mean()
+            )
+
+            obv_ma5 = (
+                pd.Series(
+                    hist["OBV"]
+                )
+                .tail(5)
+                .mean()
+            )
+
+            obv_ma20 = (
+                pd.Series(
+                    hist["OBV"]
+                )
+                .tail(20)
+                .mean()
+            )
+
+            obv_strength = round(
+                obv_now
+                /
+                obv_avg,
+                2
+            )
+
+            if obv_ma5 > obv_ma20:
+
+                bandar = (
+                    "✅ Akumulasi"
+                )
+
+            else:
+
+                bandar = (
+                    "⚠️ Distribusi"
+                )
+
+            # =====================
+            # FORECAST
+            # =====================
+
+            if (
+                obv_strength >= 1.5
+            ):
+
+                forecast = (
+                    "🔥 Sangat Bullish"
+                )
+
+                next_target = round(
+                    resistance * 1.15
+                )
+
+                probability = "85%"
+
+            elif (
+                obv_strength >= 1.2
+            ):
+
+                forecast = (
+                    "🚀 Bullish"
+                )
+
+                next_target = round(
+                    resistance * 1.10
+                )
+
+                probability = "75%"
+
+            elif (
+                obv_strength >= 1.05
+            ):
+
+                forecast = (
+                    "✅ Breakout Watch"
+                )
+
+                next_target = round(
+                    resistance * 1.05
+                )
+
+                probability = "65%"
+
+            else:
+
+                forecast = (
+                    "⏸ Sideways"
+                )
+
+                next_target = resistance
+
+                probability = "50%"
+
+            upside = round(
+                (
+                    (
+                        next_target
+                        -
+                        close
+                    )
+                    /
+                    close
+                )
+                * 100,
+                2
+            )
+
+            score = 0
+
+            if obv_strength > 1.5:
+                score += 4
+
+            elif obv_strength > 1.2:
+                score += 3
+
+            elif obv_strength > 1:
+                score += 2
+
+            if bandar == "✅ Akumulasi":
+                score += 2
+
+            if close >= resistance * 0.95:
+                score += 2
+
+            forecast_rows.append(
+                {
+                    "Ticker":
+                    ticker,
+
+                    "Price":
+                    round(close),
+
+                    "Support":
+                    support,
+
+                    "Resistance":
+                    resistance,
+
+                    "OBV Strength":
+                    obv_strength,
+
+                    "Bandar":
+                    bandar,
+
+                    "Forecast":
+                    forecast,
+
+                    "Next Target":
+                    next_target,
+
+                    "Upside %":
+                    upside,
+
+                    "Prob":
+                    probability,
+
+                    "Score":
+                    score
+                }
+            )
+
+        except:
+            pass
+
+    forecast_df = pd.DataFrame(
+        forecast_rows
+    )
+
+    if forecast_df.empty:
+
+        st.warning(
+            "Tidak ada data."
+        )
+
+    else:
+
+        forecast_df = (
+            forecast_df
+            .sort_values(
+                "Score",
+                ascending=False
+            )
+        )
+
+        st.dataframe(
+            forecast_df[
+                [
+                    "Ticker",
+                    "Price",
+                    "Support",
+                    "Resistance",
+                    "OBV Strength",
+                    "Bandar",
+                    "Forecast",
+                    "Next Target",
+                    "Upside %",
+                    "Prob"
+                ]
+            ],
+            hide_index=True,
+            use_container_width=True
+        )
+
+        st.divider()
+
+        st.subheader(
+            "🏆 Top OBV Candidates"
+        )
+
+        top5 = forecast_df.head(5)
+
+        st.dataframe(
+            top5,
+            hide_index=True,
+            use_container_width=True
+        )
+
+        st.divider()
+
+        st.subheader(
+            "📱 Copy To WhatsApp"
+        )
+
+        wa_text = (
+            "📦 OBV FORECAST\n\n"
+        )
+
+        for _, r in top5.iterrows():
+
+            wa_text += (
+                f"{r['Ticker']}\n"
+                f"Price {r['Price']}\n"
+                f"Support {r['Support']}\n"
+                f"Resistance {r['Resistance']}\n"
+                f"OBV {r['OBV Strength']}x\n"
+                f"{r['Bandar']}\n"
+                f"Target {r['Next Target']}\n"
+                f"Upside {r['Upside %']}%\n"
+                f"{r['Forecast']}\n\n"
+            )
+
+        st.code(
+            wa_text,
+            language="text"
+        )
+
+        st.divider()
+
+        st.subheader(
+            "📖 Cara Membaca OBV Forecast"
+        )
+
+        st.info(
+            """
+✅ Akumulasi
+
+OBV 5 hari > OBV 20 hari
+
+Bandar sedang mengumpulkan saham
+
+--------------------------------
+
+⚠️ Distribusi
+
+OBV 5 hari < OBV 20 hari
+
+Bandar mulai melepas saham
+
+--------------------------------
+
+OBV Strength
+
+< 1.00
+= Lemah
+
+1.00 - 1.20
+= Normal
+
+1.20 - 1.50
+= Kuat
+
+> 1.50
+= Sangat Kuat
+
+--------------------------------
+
+🚀 Bullish
+
+Target berikutnya dihitung dari
+resistance yang berpotensi ditembus.
+
+--------------------------------
+
+🔥 Sangat Bullish
+
+Akumulasi kuat.
+
+Volume masuk besar.
+
+Kemungkinan breakout tinggi.
+"""
         )
