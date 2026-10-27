@@ -3269,3 +3269,260 @@ Tekanan jual masih dominan.
                 ]
             ].tail(7)
         )
+elif menu == "Portfolio Radar":
+
+    st.title("📡 Portfolio Radar")
+
+    if not os.path.exists(
+        "portfolio.csv"
+    ):
+
+        st.warning(
+            "Portfolio belum ada."
+        )
+
+        st.stop()
+
+    portfolio_df = pd.read_csv(
+        "portfolio.csv"
+    )
+
+    radar_rows = []
+
+    for _, row in portfolio_df.iterrows():
+
+        try:
+
+            ticker = (
+                row["Ticker"]
+                + ".JK"
+            )
+
+            hist = yf.Ticker(
+                ticker
+            ).history(
+                period="6mo"
+            )
+
+            if len(hist) < 60:
+
+                continue
+
+            hist["MA20"] = (
+                hist["Close"]
+                .rolling(20)
+                .mean()
+            )
+
+            hist["MA50"] = (
+                hist["Close"]
+                .rolling(50)
+                .mean()
+            )
+
+            close = float(
+                hist["Close"].iloc[-1]
+            )
+
+            ma20 = float(
+                hist["MA20"].iloc[-1]
+            )
+
+            ma50 = float(
+                hist["MA50"].iloc[-1]
+            )
+
+            avg_vol = (
+                hist["Volume"]
+                .tail(20)
+                .mean()
+            )
+
+            vol_ratio = round(
+                hist["Volume"].iloc[-1]
+                /
+                avg_vol,
+                2
+            )
+
+            # Trend
+            if close > ma20 > ma50:
+
+                trend = "🟢 Uptrend"
+
+            elif close > ma20:
+
+                trend = "🟡 Watch"
+
+            else:
+
+                trend = "🔴 Downtrend"
+
+            # Volume Status
+            if vol_ratio >= 2:
+
+                vol_status = "🔥 Meledak"
+
+            elif vol_ratio >= 1.5:
+
+                vol_status = "🚀 Tinggi"
+
+            elif vol_ratio >= 1:
+
+                vol_status = "✅ Normal"
+
+            elif vol_ratio >= 0.5:
+
+                vol_status = "🟡 Rendah"
+
+            else:
+
+                vol_status = "😴 Sepi"
+
+            radar_rows.append(
+                {
+                    "Ticker":
+                    row["Ticker"],
+
+                    "Price":
+                    round(close),
+
+                    "Vol Ratio":
+                    vol_ratio,
+
+                    "Volume":
+                    vol_status,
+
+                    "Trend":
+                    trend
+                }
+            )
+
+        except:
+            pass
+
+    radar_df = pd.DataFrame(
+        radar_rows
+    )
+
+    if radar_df.empty:
+
+        st.warning(
+            "Tidak ada data."
+        )
+
+    else:
+
+        st.dataframe(
+            radar_df,
+            hide_index=True,
+            use_container_width=True
+        )
+
+        st.divider()
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+
+            st.metric(
+                "🟢 Uptrend",
+                len(
+                    radar_df[
+                        radar_df["Trend"]
+                        ==
+                        "🟢 Uptrend"
+                    ]
+                )
+            )
+
+        with col2:
+
+            st.metric(
+                "🚀 High Volume",
+                len(
+                    radar_df[
+                        radar_df["Vol Ratio"]
+                        >= 1.5
+                    ]
+                )
+            )
+
+        with col3:
+
+            st.metric(
+                "😴 Sepi",
+                len(
+                    radar_df[
+                        radar_df["Vol Ratio"]
+                        < 0.5
+                    ]
+                )
+            )
+
+        st.divider()
+
+        st.subheader(
+            "📖 Penjelasan Volume"
+        )
+
+        volume_guide = pd.DataFrame(
+            [
+                [
+                    "< 0.50",
+                    "😴 Sangat Sepi"
+                ],
+                [
+                    "0.50 - 0.99",
+                    "🟡 Di bawah normal"
+                ],
+                [
+                    "1.00 - 1.49",
+                    "✅ Normal"
+                ],
+                [
+                    "1.50 - 1.99",
+                    "🚀 Aktivitas Tinggi"
+                ],
+                [
+                    "≥ 2.00",
+                    "🔥 Volume Meledak"
+                ]
+            ],
+            columns=[
+                "Vol Ratio",
+                "Arti"
+            ]
+        )
+
+        st.dataframe(
+            volume_guide,
+            hide_index=True,
+            use_container_width=True
+        )
+
+        st.info(
+            """
+Vol Ratio = Volume Hari Ini ÷ Rata-rata Volume 20 Hari
+
+Contoh:
+
+Vol Ratio 1.20
+→ volume 20% lebih besar dari rata-rata.
+
+Vol Ratio 2.00
+→ volume 2x lebih besar dari rata-rata.
+
+Vol Ratio 3.00
+→ volume 3x lebih besar dari rata-rata.
+
+Perhatian:
+Volume tinggi belum tentu bullish.
+
+✅ Harga naik + volume tinggi
+= akumulasi / breakout.
+
+❌ Harga turun + volume tinggi
+= distribusi / tekanan jual.
+"""
+        )
