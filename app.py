@@ -106,7 +106,7 @@ if menu == "Saham":
             "Breakout Scanner",
             "Take Profit Analyzer",
             "OBV Forecast",
-            "Stock Entry Analyzer"
+            "Stock Entry Analyzer",
             "Avg Down Planner",
             "Value Screener",
             "Price Momentum",
