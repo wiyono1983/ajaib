@@ -104,7 +104,7 @@ if menu == "Saham":
             "Portfolio Radar",
             "Analisa Saham",
             "Breakout Scanner",
-            "Support Resistance",
+            "Take Profit Analyzer",
             "Avg Down Planner",
             "Value Screener",
             "Price Momentum",
@@ -3525,4 +3525,426 @@ Volume tinggi belum tentu bullish.
 ❌ Harga turun + volume tinggi
 = distribusi / tekanan jual.
 """
+        )
+elif menu == "Take Profit Analyzer":
+
+    st.title("🎯 Take Profit Analyzer")
+
+    if not os.path.exists("portfolio.csv"):
+
+        st.warning("Portfolio belum ada.")
+        st.stop()
+
+    portfolio_df = pd.read_csv(
+        "portfolio.csv"
+    )
+
+    rows = []
+
+    for _, row in portfolio_df.iterrows():
+
+        try:
+
+            ticker = row["Ticker"]
+
+            hist = yf.Ticker(
+                ticker + ".JK"
+            ).history(
+                period="1y"
+            )
+
+            if len(hist) < 60:
+
+                continue
+
+            hist["RSI"] = calculate_rsi(
+                hist["Close"]
+            )
+
+            close = float(
+                hist["Close"].iloc[-1]
+            )
+
+            high = float(
+                hist["High"].iloc[-1]
+            )
+
+            low = float(
+                hist["Low"].iloc[-1]
+            )
+
+            open_price = float(
+                hist["Open"].iloc[-1]
+            )
+
+            rsi = round(
+                hist["RSI"].iloc[-1],
+                2
+            )
+
+            resistance = round(
+                hist["High"]
+                .tail(20)
+                .max()
+            )
+
+            support = round(
+                hist["Low"]
+                .tail(20)
+                .min()
+            )
+
+            avg_vol = (
+                hist["Volume"]
+                .tail(20)
+                .mean()
+            )
+
+            vol_ratio = round(
+                hist["Volume"].iloc[-1]
+                /
+                avg_vol,
+                2
+            )
+
+            upper_shadow = (
+                high -
+                max(
+                    close,
+                    open_price
+                )
+            )
+
+            candle_range = (
+                high - low
+            )
+
+            distribution = False
+
+            if candle_range > 0:
+
+                distribution = (
+                    upper_shadow >
+                    candle_range * 0.4
+                )
+
+            tr = pd.concat(
+                [
+                    hist["High"] - hist["Low"],
+                    abs(
+                        hist["High"]
+                        - hist["Close"].shift()
+                    ),
+                    abs(
+                        hist["Low"]
+                        - hist["Close"].shift()
+                    )
+                ],
+                axis=1
+            ).max(axis=1)
+
+            atr = (
+                tr
+                .rolling(14)
+                .mean()
+                .iloc[-1]
+            )
+
+            tp1 = round(
+                close + atr
+            )
+
+            tp2 = round(
+                close + atr * 2
+            )
+
+            tp3 = round(
+                close + atr * 3
+            )
+
+            high20 = (
+                hist["High"]
+                .tail(20)
+                .max()
+            )
+
+            trailing_stop = round(
+                high20 * 0.93
+            )
+
+            score = 0
+
+            notes = []
+
+            if rsi > 75:
+
+                score += 2
+                notes.append(
+                    "RSI Panas"
+                )
+
+            if close >= resistance * 0.98:
+
+                score += 2
+                notes.append(
+                    "Dekat Resistance"
+                )
+
+            if distribution:
+
+                score += 3
+                notes.append(
+                    "Distribusi"
+                )
+
+            if vol_ratio < 1:
+
+                score += 1
+                notes.append(
+                    "Volume Lemah"
+                )
+
+            if close < trailing_stop:
+
+                score += 4
+                notes.append(
+                    "Break Trailing Stop"
+                )
+
+            if score >= 6:
+
+                signal = (
+                    "🔴 STRONG TP"
+                )
+
+            elif score >= 4:
+
+                signal = (
+                    "🟡 PARTIAL TP"
+                )
+
+            else:
+
+                signal = (
+                    "🟢 HOLD"
+                )
+
+            upside = round(
+                (
+                    (
+                        resistance
+                        - close
+                    )
+                    /
+                    close
+                ) * 100,
+                2
+            )
+
+            rows.append(
+                {
+                    "Ticker":
+                    ticker,
+
+                    "Price":
+                    round(close),
+
+                    "RSI":
+                    rsi,
+
+                    "Resistance":
+                    resistance,
+
+                    "Support":
+                    support,
+
+                    "TP1":
+                    tp1,
+
+                    "TP2":
+                    tp2,
+
+                    "TP3":
+                    tp3,
+
+                    "Trail":
+                    trailing_stop,
+
+                    "Signal":
+                    signal,
+
+                    "Note":
+                    ", ".join(notes),
+
+                    "Upside %":
+                    upside
+                }
+            )
+
+        except:
+            pass
+
+    tp_df = pd.DataFrame(
+        rows
+    )
+
+    if tp_df.empty:
+
+        st.warning(
+            "Tidak ada data."
+        )
+
+    else:
+
+        tp_df = tp_df.sort_values(
+            "Upside %",
+            ascending=False
+        )
+
+        st.dataframe(
+            tp_df,
+            hide_index=True,
+            use_container_width=True
+        )
+
+        st.divider()
+
+        st.subheader(
+            "🔴 Strong Take Profit"
+        )
+
+        strong_tp = tp_df[
+            tp_df["Signal"]
+            ==
+            "🔴 STRONG TP"
+        ]
+
+        if strong_tp.empty:
+
+            st.success(
+                "Tidak ada saham yang wajib take profit."
+            )
+
+        else:
+
+            st.dataframe(
+                strong_tp,
+                hide_index=True,
+                use_container_width=True
+            )
+
+        st.divider()
+
+        st.subheader(
+            "🟡 Partial Take Profit"
+        )
+
+        partial_tp = tp_df[
+            tp_df["Signal"]
+            ==
+            "🟡 PARTIAL TP"
+        ]
+
+        if partial_tp.empty:
+
+            st.info(
+                "Tidak ada partial TP."
+            )
+
+        else:
+
+            st.dataframe(
+                partial_tp,
+                hide_index=True,
+                use_container_width=True
+            )
+
+        st.divider()
+
+        st.subheader(
+            "🟢 Hold"
+        )
+
+        hold_df = tp_df[
+            tp_df["Signal"]
+            ==
+            "🟢 HOLD"
+        ]
+
+        if not hold_df.empty:
+
+            st.dataframe(
+                hold_df,
+                hide_index=True,
+                use_container_width=True
+            )
+
+        st.divider()
+
+        total_hold = len(
+            tp_df[
+                tp_df["Signal"]
+                ==
+                "🟢 HOLD"
+            ]
+        )
+
+        total_partial = len(
+            tp_df[
+                tp_df["Signal"]
+                ==
+                "🟡 PARTIAL TP"
+            ]
+        )
+
+        total_strong = len(
+            tp_df[
+                tp_df["Signal"]
+                ==
+                "🔴 STRONG TP"
+            ]
+        )
+
+        c1, c2, c3 = st.columns(3)
+
+        c1.metric(
+            "🟢 Hold",
+            total_hold
+        )
+
+        c2.metric(
+            "🟡 Partial TP",
+            total_partial
+        )
+
+        c3.metric(
+            "🔴 Strong TP",
+            total_strong
+        )
+
+        st.divider()
+
+        wa_text = (
+            "🎯 TAKE PROFIT ANALYZER\n\n"
+        )
+
+        for _, r in tp_df.iterrows():
+
+            wa_text += (
+                f"{r['Ticker']}\n"
+                f"Harga : {r['Price']}\n"
+                f"RSI : {r['RSI']}\n"
+                f"TP1 : {r['TP1']}\n"
+                f"TP2 : {r['TP2']}\n"
+                f"Signal : {r['Signal']}\n"
+                f"{r['Note']}\n\n"
+            )
+
+        st.subheader(
+            "📱 Copy To WhatsApp"
+        )
+
+        st.code(
+            wa_text,
+            language="text"
         )
