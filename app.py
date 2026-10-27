@@ -3526,9 +3526,10 @@ Volume tinggi belum tentu bullish.
 = distribusi / tekanan jual.
 """
         )
+
 elif menu == "Take Profit Analyzer":
 
-    st.title("🎯 Take Profit Analyzer")
+    st.title("🎯 Smart Take Profit Analyzer")
 
     if not os.path.exists("portfolio.csv"):
 
@@ -3539,13 +3540,27 @@ elif menu == "Take Profit Analyzer":
         "portfolio.csv"
     )
 
-    rows = []
+    result_rows = []
+
+    total_profit = 0
 
     for _, row in portfolio_df.iterrows():
 
         try:
 
             ticker = row["Ticker"]
+
+            avg_buy = float(
+                row["Avg Buy"]
+            )
+
+            lot = int(
+                row["Lot"]
+            )
+
+            shares = (
+                lot * 100
+            )
 
             hist = yf.Ticker(
                 ticker + ".JK"
@@ -3582,6 +3597,39 @@ elif menu == "Take Profit Analyzer":
                 2
             )
 
+            profit_pct = round(
+                (
+                    (
+                        close
+                        -
+                        avg_buy
+                    )
+                    /
+                    avg_buy
+                )
+                * 100,
+                2
+            )
+
+            market_value = (
+                close
+                * shares
+            )
+
+            cost_value = (
+                avg_buy
+                * shares
+            )
+
+            unrealized_profit = (
+                market_value
+                - cost_value
+            )
+
+            total_profit += (
+                unrealized_profit
+            )
+
             resistance = round(
                 hist["High"]
                 .tail(20)
@@ -3608,7 +3656,8 @@ elif menu == "Take Profit Analyzer":
             )
 
             upper_shadow = (
-                high -
+                high
+                -
                 max(
                     close,
                     open_price
@@ -3624,20 +3673,27 @@ elif menu == "Take Profit Analyzer":
             if candle_range > 0:
 
                 distribution = (
-                    upper_shadow >
+                    upper_shadow
+                    >
                     candle_range * 0.4
                 )
 
             tr = pd.concat(
                 [
-                    hist["High"] - hist["Low"],
+                    hist["High"]
+                    -
+                    hist["Low"],
+
                     abs(
                         hist["High"]
-                        - hist["Close"].shift()
+                        -
+                        hist["Close"].shift()
                     ),
+
                     abs(
                         hist["Low"]
-                        - hist["Close"].shift()
+                        -
+                        hist["Close"].shift()
                     )
                 ],
                 axis=1
@@ -3655,11 +3711,11 @@ elif menu == "Take Profit Analyzer":
             )
 
             tp2 = round(
-                close + atr * 2
+                close + (atr * 2)
             )
 
             tp3 = round(
-                close + atr * 3
+                close + (atr * 3)
             )
 
             high20 = (
@@ -3674,47 +3730,142 @@ elif menu == "Take Profit Analyzer":
 
             score = 0
 
-            notes = []
+            reasons = []
 
-            if rsi > 75:
+            #===================
+            # PROFIT SCORE
+            #===================
+
+            if profit_pct >= 50:
+
+                score += 4
+                reasons.append(
+                    "Profit>50%"
+                )
+
+            elif profit_pct >= 30:
+
+                score += 3
+                reasons.append(
+                    "Profit>30%"
+                )
+
+            elif profit_pct >= 15:
 
                 score += 2
-                notes.append(
+                reasons.append(
+                    "Profit>15%"
+                )
+
+            elif profit_pct >= 10:
+
+                score += 1
+                reasons.append(
+                    "Profit>10%"
+                )
+
+            #===================
+            # RSI
+            #===================
+
+            if rsi >= 80:
+
+                score += 3
+                reasons.append(
+                    "RSI Extreme"
+                )
+
+            elif rsi >= 75:
+
+                score += 2
+                reasons.append(
                     "RSI Panas"
                 )
 
-            if close >= resistance * 0.98:
+            #===================
+            # RESISTANCE
+            #===================
+
+            if close >= (
+                resistance * 0.98
+            ):
 
                 score += 2
-                notes.append(
-                    "Dekat Resistance"
+                reasons.append(
+                    "Near Resistance"
                 )
+
+            #===================
+            # DISTRIBUSI
+            #===================
 
             if distribution:
 
                 score += 3
-                notes.append(
+                reasons.append(
                     "Distribusi"
                 )
+
+            #===================
+            # VOLUME
+            #===================
 
             if vol_ratio < 1:
 
                 score += 1
-                notes.append(
+                reasons.append(
                     "Volume Lemah"
                 )
+
+            #===================
+            # TRAILING STOP
+            #===================
 
             if close < trailing_stop:
 
                 score += 4
-                notes.append(
-                    "Break Trailing Stop"
+                reasons.append(
+                    "Break Trail"
                 )
 
-            if score >= 6:
+            #===================
+            # PROFIT + RSI
+            #===================
+
+            if (
+                profit_pct > 30
+                and
+                rsi > 70
+            ):
+
+                score += 2
+
+                reasons.append(
+                    "Profit+RSI"
+                )
+
+            #===================
+            # FINAL SIGNAL
+            #===================
+
+            if score >= 10:
 
                 signal = (
-                    "🔴 STRONG TP"
+                    "🔴 SELL ALL"
+                )
+
+                action = (
+                    "Jual 100%"
+                )
+
+            elif score >= 7:
+
+                signal = (
+                    "🟠 TAKE PROFIT"
+                )
+
+                action = (
+                    "Jual 50%"
                 )
 
             elif score >= 4:
@@ -3723,40 +3874,44 @@ elif menu == "Take Profit Analyzer":
                     "🟡 PARTIAL TP"
                 )
 
+                action = (
+                    "Jual 25%"
+                )
+
             else:
 
                 signal = (
                     "🟢 HOLD"
                 )
 
-            upside = round(
-                (
-                    (
-                        resistance
-                        - close
-                    )
-                    /
-                    close
-                ) * 100,
-                2
-            )
+                action = (
+                    "Hold"
+                )
 
-            rows.append(
+            result_rows.append(
                 {
                     "Ticker":
                     ticker,
 
+                    "Lot":
+                    lot,
+
+                    "Avg Buy":
+                    round(avg_buy),
+
                     "Price":
                     round(close),
 
+                    "Profit %":
+                    profit_pct,
+
+                    "Profit Rp":
+                    round(
+                        unrealized_profit
+                    ),
+
                     "RSI":
-                    rsi,
-
-                    "Resistance":
-                    resistance,
-
-                    "Support":
-                    support,
+                    round(rsi,1),
 
                     "TP1":
                     tp1,
@@ -3773,11 +3928,13 @@ elif menu == "Take Profit Analyzer":
                     "Signal":
                     signal,
 
-                    "Note":
-                    ", ".join(notes),
+                    "Action":
+                    action,
 
-                    "Upside %":
-                    upside
+                    "Reason":
+                    ", ".join(
+                        reasons
+                    )
                 }
             )
 
@@ -3785,7 +3942,7 @@ elif menu == "Take Profit Analyzer":
             pass
 
     tp_df = pd.DataFrame(
-        rows
+        result_rows
     )
 
     if tp_df.empty:
@@ -3796,9 +3953,9 @@ elif menu == "Take Profit Analyzer":
 
     else:
 
-        tp_df = tp_df.sort_values(
-            "Upside %",
-            ascending=False
+        st.metric(
+            "💰 Total Unrealized Profit",
+            f"Rp {total_profit:,.0f}"
         )
 
         st.dataframe(
@@ -3810,25 +3967,19 @@ elif menu == "Take Profit Analyzer":
         st.divider()
 
         st.subheader(
-            "🔴 Strong Take Profit"
+            "🔴 SELL ALL"
         )
 
-        strong_tp = tp_df[
+        sell_all = tp_df[
             tp_df["Signal"]
             ==
-            "🔴 STRONG TP"
+            "🔴 SELL ALL"
         ]
 
-        if strong_tp.empty:
-
-            st.success(
-                "Tidak ada saham yang wajib take profit."
-            )
-
-        else:
+        if not sell_all.empty:
 
             st.dataframe(
-                strong_tp,
+                sell_all,
                 hide_index=True,
                 use_container_width=True
             )
@@ -3836,25 +3987,19 @@ elif menu == "Take Profit Analyzer":
         st.divider()
 
         st.subheader(
-            "🟡 Partial Take Profit"
+            "🟠 TAKE PROFIT"
         )
 
-        partial_tp = tp_df[
+        tp50 = tp_df[
             tp_df["Signal"]
             ==
-            "🟡 PARTIAL TP"
+            "🟠 TAKE PROFIT"
         ]
 
-        if partial_tp.empty:
-
-            st.info(
-                "Tidak ada partial TP."
-            )
-
-        else:
+        if not tp50.empty:
 
             st.dataframe(
-                partial_tp,
+                tp50,
                 hide_index=True,
                 use_container_width=True
             )
@@ -3862,7 +4007,7 @@ elif menu == "Take Profit Analyzer":
         st.divider()
 
         st.subheader(
-            "🟢 Hold"
+            "🟢 HOLD"
         )
 
         hold_df = tp_df[
@@ -3881,45 +4026,50 @@ elif menu == "Take Profit Analyzer":
 
         st.divider()
 
-        total_hold = len(
-            tp_df[
-                tp_df["Signal"]
-                ==
-                "🟢 HOLD"
-            ]
-        )
-
-        total_partial = len(
-            tp_df[
-                tp_df["Signal"]
-                ==
-                "🟡 PARTIAL TP"
-            ]
-        )
-
-        total_strong = len(
-            tp_df[
-                tp_df["Signal"]
-                ==
-                "🔴 STRONG TP"
-            ]
-        )
-
-        c1, c2, c3 = st.columns(3)
+        c1, c2, c3, c4 = st.columns(4)
 
         c1.metric(
-            "🟢 Hold",
-            total_hold
+            "Hold",
+            len(
+                tp_df[
+                    tp_df["Signal"]
+                    ==
+                    "🟢 HOLD"
+                ]
+            )
         )
 
         c2.metric(
-            "🟡 Partial TP",
-            total_partial
+            "Partial",
+            len(
+                tp_df[
+                    tp_df["Signal"]
+                    ==
+                    "🟡 PARTIAL TP"
+                ]
+            )
         )
 
         c3.metric(
-            "🔴 Strong TP",
-            total_strong
+            "TP",
+            len(
+                tp_df[
+                    tp_df["Signal"]
+                    ==
+                    "🟠 TAKE PROFIT"
+                ]
+            )
+        )
+
+        c4.metric(
+            "Sell All",
+            len(
+                tp_df[
+                    tp_df["Signal"]
+                    ==
+                    "🔴 SELL ALL"
+                ]
+            )
         )
 
         st.divider()
@@ -3932,12 +4082,13 @@ elif menu == "Take Profit Analyzer":
 
             wa_text += (
                 f"{r['Ticker']}\n"
-                f"Harga : {r['Price']}\n"
+                f"Avg : {r['Avg Buy']:,.0f}\n"
+                f"Now : {r['Price']:,.0f}\n"
+                f"Profit : {r['Profit %']}%\n"
                 f"RSI : {r['RSI']}\n"
-                f"TP1 : {r['TP1']}\n"
-                f"TP2 : {r['TP2']}\n"
                 f"Signal : {r['Signal']}\n"
-                f"{r['Note']}\n\n"
+                f"Action : {r['Action']}\n"
+                f"{r['Reason']}\n\n"
             )
 
         st.subheader(
