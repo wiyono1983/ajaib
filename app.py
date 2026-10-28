@@ -107,6 +107,7 @@ if menu == "Saham":
             "Take Profit Analyzer",
             "OBV Forecast",
             "Stock Entry Analyzer",
+            "Market Movers",
             "Avg Down Planner",
             "Value Screener",
             "Price Momentum",
@@ -4905,3 +4906,179 @@ Status Bandar :
         except Exception as e:
 
             st.error(e)
+elif menu == "Market Movers":
+
+    st.title("🔥 Market Movers")
+
+    if not os.path.exists("portfolio.csv"):
+
+        st.warning("Portfolio belum ada.")
+        st.stop()
+
+    portfolio_df = pd.read_csv(
+        "portfolio.csv"
+    )
+
+    rows = []
+
+    for _, row in portfolio_df.iterrows():
+
+        try:
+
+            ticker = row["Ticker"]
+
+            hist = yf.Ticker(
+                ticker + ".JK"
+            ).history(
+                period="3mo"
+            )
+
+            if len(hist) < 30:
+
+                continue
+
+            hist["RSI"] = calculate_rsi(
+                hist["Close"]
+            )
+
+            current = float(
+                hist["Close"].iloc[-1]
+            )
+
+            prev = float(
+                hist["Close"].iloc[-2]
+            )
+
+            gain_pct = round(
+                (
+                    (current - prev)
+                    / prev
+                ) * 100,
+                2
+            )
+
+            avg_vol = (
+                hist["Volume"]
+                .tail(20)
+                .mean()
+            )
+
+            vol_ratio = round(
+                hist["Volume"].iloc[-1]
+                / avg_vol,
+                2
+            )
+
+            rsi = round(
+                hist["RSI"].iloc[-1],
+                2
+            )
+
+            signal = "👀 Watch"
+
+            if (
+                gain_pct > 5
+                and vol_ratio > 2
+                and rsi > 60
+            ):
+
+                signal = "🔥 HOT"
+
+            elif (
+                gain_pct > 2
+                and vol_ratio > 1.5
+            ):
+
+                signal = "🚀 Momentum"
+
+            rows.append(
+                {
+                    "Ticker": ticker,
+                    "Price": round(current),
+                    "Gain %": gain_pct,
+                    "RSI": rsi,
+                    "Vol Ratio": vol_ratio,
+                    "Signal": signal
+                }
+            )
+
+        except:
+            pass
+
+    movers_df = pd.DataFrame(
+        rows
+    )
+
+    if movers_df.empty:
+
+        st.warning(
+            "Tidak ada data."
+        )
+
+    else:
+
+        movers_df = movers_df.sort_values(
+            "Gain %",
+            ascending=False
+        )
+
+        st.subheader(
+            "🏆 Top Gainer Portfolio"
+        )
+
+        st.dataframe(
+            movers_df,
+            hide_index=True,
+            use_container_width=True
+        )
+
+        st.divider()
+
+        hot_df = movers_df[
+            movers_df["Signal"]
+            == "🔥 HOT"
+        ]
+
+        if not hot_df.empty:
+
+            st.success(
+                f"""
+🔥 HOT STOCKS
+
+{', '.join(
+    hot_df['Ticker']
+)}
+"""
+            )
+
+        st.divider()
+
+        st.subheader(
+            "📖 Interpretasi"
+        )
+
+        st.info(
+            """
+🔥 HOT
+
+Gain > 5%
+
+RSI > 60
+
+Volume > 2x rata-rata
+
+------------------------
+
+🚀 MOMENTUM
+
+Gain > 2%
+
+Volume > 1.5x
+
+------------------------
+
+👀 WATCH
+
+Belum ada momentum kuat
+"""
+        )
