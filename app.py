@@ -2483,11 +2483,8 @@ elif menu == "Breakout Scanner":
                 hist
             )
 
-            resistance = (
-                hist["High"]
-                .tail(20)
-                .iloc[:-1]
-                .max()
+            support, resistance = get_support_resistance(
+                hist
             )
 
             close = float(
@@ -2673,30 +2670,48 @@ elif menu == "Breakout Scanner":
 
             breakout_rows.append(
                 {
-                    "Ticker":
-                    row["Ticker"],
+                    "Ticker": row["Ticker"],
 
-                    "Close":
-                    round(close),
+                    "Price": round(close),
 
-                    "Vol Ratio":
-                    vol_ratio,
+                    "Vol Ratio": vol_ratio,
 
-                    "RSI":
-                    rsi,
+                    "RSI": rsi,
 
-                    "OBV":
-                    obv_status,
+                    "OBV": obv_status,
 
-                    "Close":
-                    close_status,
+                    "Close Status": close_status,
 
-                    "Candle":
-                    candle_status,
+                    "Candle": candle_status,
 
-                    "Signal":
-                    signal
+                    "Signal": signal
                 }
+
+            #    {
+               #     "Ticker":
+           #         row["Ticker"],
+
+               #     "Close":
+               #     round(close),
+
+              #      "Vol Ratio":
+           #         vol_ratio,
+
+                #    "RSI":
+                #    rsi,
+
+                 #   "OBV":
+               #     obv_status,
+
+              #      "Close":
+                #    close_status,
+
+               #     "Candle":
+                 #   candle_status,
+
+               #     "Signal":
+               #     signal
+             #   }
             )
 
         except:
@@ -2978,17 +2993,9 @@ elif menu == "Analisa Saham":
     rsi = float(
         hist["RSI"].iloc[-1]
     )
-
-    support = round(
-        hist["Low"]
-        .tail(20)
-        .min()
-    )
-
-    resistance = round(
-        hist["High"]
-        .tail(20)
-        .max()
+    
+    support, resistance = get_support_resistance(
+        hist
     )
 
     analysis_menu = st.selectbox(
@@ -3683,18 +3690,10 @@ elif menu == "Take Profit Analyzer":
             total_profit += (
                 unrealized_profit
             )
-
-            resistance = round(
-                hist["High"]
-                .tail(20)
-                .max()
+            support, resistance = get_support_resistance(
+                hist
             )
 
-            support = round(
-                hist["Low"]
-                .tail(20)
-                .min()
-            )
 
             avg_vol = (
                 hist["Volume"]
@@ -4227,18 +4226,10 @@ elif menu == "OBV Forecast":
                 )
                 * shares
             )
-
-            support = round(
-                hist["Low"]
-                .tail(20)
-                .min()
+            support, resistance = get_support_resistance(
+                hist
             )
-
-            resistance = round(
-                hist["High"]
-                .tail(20)
-                .max()
-            )
+         
 
             obv_now = (
                 hist["OBV"]
@@ -4260,13 +4251,25 @@ elif menu == "OBV Forecast":
                 .tail(20)
                 .mean()
             )
+            if abs(obv_ma20) > 0:
 
-            obv_strength = round(
+                obv_strength = round(
                 obv_now
                 /
                 abs(obv_ma20),
                 2
             )
+
+            else:
+
+                obv_strength = 0
+
+         #   obv_strength = round(
+            #    obv_now
+              #  /
+            #    abs(obv_ma20),
+             #   2
+           # )
 
             if obv_ma5 > obv_ma20:
 
